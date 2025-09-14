@@ -1,0 +1,23 @@
+{
+  "name": "codeigniter-api-backend",
+  "version": "1.0.0",
+  "description": "CodeIgniter 3 REST API Backend with JWT Authentication",
+  "main": "index.php",
+  "scripts": {
+    "dev": "php -S localhost:8080",
+    "start": "php -S localhost:8080"
+  },
+  "keywords": [
+    "codeigniter",
+    "php",
+    "api",
+    "jwt",
+    "authentication",
+    "rest",
+    "mysql"
+  ],
+  "author": "CodeIgniter API Backend",
+  "license": "MIT",
+  "dependencies": {},
+  "devDependencies": {}
+}
