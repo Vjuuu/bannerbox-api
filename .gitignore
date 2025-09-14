@@ -1,4 +1,7 @@
+# Ignore uploads subfolders but keep folders
 uploads/logos/*
 uploads/posters/*
-.env
 
+# Keep placeholder files
+!uploads/logos/.gitkeep
+!uploads/posters/.gitkeep
