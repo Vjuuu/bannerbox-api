@@ -172,6 +172,45 @@ class Auth extends CI_Controller {
             ]
         ]);
     }
+
+    public function google_login() {
+    $input = json_decode(trim(file_get_contents('php://input')), true);
+    // var_dump($input);
+    // die();
+    if (empty($input['token'])) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'Missing id_token']);
+        return;
+    }
+
+    // Load Google Client library (install via composer: google/apiclient)
+    require_once APPPATH . '../vendor/autoload.php';
+    $client = new Google_Client(['client_id' => '326471924600-61b9lvn69pbihmbkcfedb574sllklllo.apps.googleusercontent.com']);
+    $payload = $client->verifyIdToken($input['token']);
+
+    if ($payload) {
+        $email = $payload['email'];
+        $full_name = $payload['name'];
+        // Check if user exists, else create
+        $user = $this->User_model->get_by_email($email);
+        if (!$user) {
+            $user_id = $this->User_model->create([
+                'email' => $email,
+                'full_name' => $full_name,
+                'username' => $email,
+                'subscription_type' => 'basic',
+                'created_at' => date('Y-m-d H:i:s')
+            ]);
+            $user = $this->User_model->get_by_id($user_id);
+        }
+        // Generate your own JWT for the user
+        $token = $this->jwt_library->generate_token($user);
+        echo json_encode(['success' => true, 'token' => $token, 'user' => $user]);
+    } else {
+        http_response_code(401);
+        echo json_encode(['success' => false, 'message' => 'Invalid Google token']);
+    }
+}
     
     /**
      * Get User Profile

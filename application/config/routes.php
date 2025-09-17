@@ -19,6 +19,8 @@ $route['translate_uri_dashes'] = FALSE;
 
 // Authentication routes
 $route['api/auth/login'] = 'api/auth/login';
+$route['api/auth/google-login'] = 'api/auth/google_login';
+
 $route['api/auth/register'] = 'api/auth/register';
 $route['api/auth/profile'] = 'api/auth/profile';
 $route['api/auth/update-profile'] = 'api/auth/update_profile';
