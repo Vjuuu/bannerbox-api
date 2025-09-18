@@ -205,7 +205,16 @@ class Auth extends CI_Controller {
         }
         // Generate your own JWT for the user
         $token = $this->jwt_library->generate_token($user);
-        echo json_encode(['success' => true, 'token' => $token, 'user' => $user]);
+        // echo json_encode(['success' => true, 'token' => $token, 'user' => $user]);
+
+         echo json_encode([
+            'success' => true,
+            'message' => 'Login successful',
+            'data' => [
+                'user' => $user,
+                'token' => $token
+            ]
+        ]);
     } else {
         http_response_code(401);
         echo json_encode(['success' => false, 'message' => 'Invalid Google token']);
