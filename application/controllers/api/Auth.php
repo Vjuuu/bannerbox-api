@@ -206,7 +206,9 @@ class Auth extends CI_Controller {
         // Generate your own JWT for the user
         $token = $this->jwt_library->generate_token($user);
         // echo json_encode(['success' => true, 'token' => $token, 'user' => $user]);
-
+         if (!empty($user['logo'])) {
+            $user['logo'] = base_url('uploads/logos/' . $user['logo']);
+        }
          echo json_encode([
             'success' => true,
             'message' => 'Login successful',
