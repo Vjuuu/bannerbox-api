@@ -85,6 +85,7 @@ CREATE TABLE IF NOT EXISTS `payments` (
   `user_id` INT(11) NOT NULL,
   `subscription_id` INT(11) DEFAULT NULL,
   `razorpay_payment_id` VARCHAR(100) DEFAULT NULL COMMENT 'Razorpay Payment ID (pay_xxxxx)',
+  `razorpay_subscription_id` VARCHAR(100) DEFAULT NULL COMMENT 'Razorpay Subscription ID (sub_xxxxx)',
   `razorpay_invoice_id` VARCHAR(100) DEFAULT NULL COMMENT 'Razorpay Invoice ID if any',
   `amount` DECIMAL(10,2) NOT NULL,
   `currency` VARCHAR(10) DEFAULT 'INR',

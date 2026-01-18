@@ -96,6 +96,7 @@ class Subscription extends CI_Controller {
             return [
                 'id' => (int) $plan['plan_id'],
                 'code' => $plan['plan_code'],
+                'razorpay_plan_id' => $plan['razorpay_plan_id'],
                 'name' => $plan['name'],
                 'description' => $plan['description'],
                 'amount' => (float) $plan['amount'],
@@ -200,35 +201,40 @@ class Subscription extends CI_Controller {
         }
         
         // Check for pending subscriptions (created but not authenticated)
-        $pending_sub = $this->Subscription_model->get_pending_by_user($user['user_id']);
-        if ($pending_sub) {
-            // Return existing pending subscription instead of creating new one
-            echo json_encode([
-                'success' => true,
-                'message' => 'You have a pending subscription. Complete the payment to activate.',
-                'data' => [
-                    'subscription_id' => $pending_sub['subscription_id'],
-                    'razorpay_subscription_id' => $pending_sub['razorpay_subscription_id'],
-                    'short_url' => $pending_sub['razorpay_short_url'],
-                    'status' => 'pending_authentication',
-                    'plan' => [
-                        'id' => $plan['plan_id'],
-                        'name' => $plan['name'],
-                        'amount' => $plan['amount'],
-                        'billing_period' => $plan['billing_period']
-                    ]
-                ]
-            ]);
-            return;
-        }
+        // $pending_sub = $this->Subscription_model->get_pending_by_user($user['user_id']);
+        // if ($pending_sub) {
+        //     // Return existing pending subscription instead of creating new one
+        //     echo json_encode([
+        //         'success' => true,
+        //         'message' => 'You have a pending subscription. Complete the payment to activate.',
+        //         'data' => [
+        //             'subscription_id' => $pending_sub['subscription_id'],
+        //             'razorpay_subscription_id' => $pending_sub['razorpay_subscription_id'],
+        //             'short_url' => $pending_sub['razorpay_short_url'],
+        //             'status' => 'pending_authentication',
+        //             'plan' => [
+        //                 'id' => $plan['plan_id'],
+        //                 'name' => $plan['name'],
+        //                 'amount' => $plan['amount'],
+        //                 'billing_period' => $plan['billing_period']
+        //             ]
+        //         ]
+        //     ]);
+        //     return;
+        // }
         
         // Create Razorpay subscription
+        $customer_details = [
+            'name' => $user['full_name'] ?? $user['name'] ?? '',
+            'email' => $user['email'] ?? '',
+            'contact' => $user['phone'] ?? ''
+        ];
+        
         $razorpay_subscription = $this->razorpay_library->create_subscription(
             $plan['razorpay_plan_id'],
             $plan['total_billing_cycles'], // null for infinite
-            $user['email'],
-            $user['phone'] ?? null,
-            $user['full_name'] ?? $user['name'] ?? null,
+            null, // customer_id (let library create new customer)
+            $customer_details,
             [
                 'user_id' => (string) $user['user_id'],
                 'plan_id' => (string) $plan['plan_id'],
@@ -275,13 +281,17 @@ class Subscription extends CI_Controller {
         
         log_message('info', 'Subscription created for user ' . $user['user_id'] . ': ' . $razorpay_subscription['id']);
         
+        // Build checkout URL for our hosted payment page
+        $checkout_url = base_url('api/subscription/checkout/' . $subscription_id);
+        
         echo json_encode([
             'success' => true,
             'message' => 'Subscription created. Complete payment to activate.',
             'data' => [
                 'subscription_id' => $subscription_id,
                 'razorpay_subscription_id' => $razorpay_subscription['id'],
-                'short_url' => $razorpay_subscription['short_url'],
+                'short_url' => $razorpay_subscription['short_url'], // Razorpay hosted page
+                'checkout_url' => $checkout_url, // Our hosted page with redirect
                 'status' => $razorpay_subscription['status'],
                 'plan' => [
                     'id' => $plan['plan_id'],
@@ -293,11 +303,240 @@ class Subscription extends CI_Controller {
                 'checkout_options' => $checkout_options,
                 'key_id' => $this->razorpay_library->get_key_id(),
                 'instructions' => [
-                    'redirect' => 'Redirect user to short_url to complete UPI mandate authentication',
-                    'inline' => 'Or use checkout_options with Razorpay.js for inline checkout'
+                    'checkout_url' => 'Redirect user to checkout_url for complete payment flow with redirect back',
+                    'short_url' => 'Or use Razorpay hosted page (no redirect back)',
+                    'inline' => 'Or use checkout_options with Razorpay.js in your frontend'
                 ]
             ]
         ]);
+    }
+    
+    /**
+     * Hosted Checkout Page
+     * 
+     * GET /api/subscription/checkout/:subscription_id
+     * 
+     * Displays a payment page with Razorpay.js integration.
+     * After payment, redirects to callback which then redirects to frontend.
+     */
+    public function checkout($subscription_id = null) {
+        // Override JSON content type for HTML view
+        header('Content-Type: text/html; charset=utf-8');
+        
+        if (!$subscription_id) {
+            show_error('Invalid subscription', 400);
+            return;
+        }
+        
+        // Get subscription from database
+        $subscription = $this->Subscription_model->get_by_id($subscription_id);
+        
+        if (!$subscription) {
+            show_error('Subscription not found', 404);
+            return;
+        }
+        
+        // Check if already active
+        if ($subscription['status'] === 'active') {
+            redirect($this->config->item('frontend_url') . '/dashboard?message=already_subscribed');
+            return;
+        }
+        
+        // Get plan details
+        $plan = $this->Plan_model->get_by_id($subscription['plan_id']);
+        
+        if (!$plan) {
+            show_error('Plan not found', 404);
+            return;
+        }
+        
+        // Decode features if it's JSON string
+        if (is_string($plan['features'])) {
+            $plan['features'] = json_decode($plan['features'], true) ?: [];
+        }
+        
+        // Get user details
+        $user = $this->User_model->get_by_id($subscription['user_id']);
+        
+        // Get checkout options
+        $checkout_options = $this->razorpay_library->get_subscription_checkout_options(
+            $subscription['razorpay_subscription_id'],
+            $user ?: []
+        );
+        
+        // Prepare data for view
+        $data = [
+            'plan' => $plan,
+            'subscription_data' => [
+                'subscription_id' => $subscription['subscription_id'],
+                'razorpay_subscription_id' => $subscription['razorpay_subscription_id']
+            ],
+            'checkout_options' => $checkout_options,
+            'callback_url' => base_url('api/subscription/callback'),
+            'frontend_success_url' => $this->config->item('payment_success_url') ?: $this->config->item('frontend_url') . '/payment-status',
+            'frontend_failure_url' => $this->config->item('payment_failure_url') ?: $this->config->item('frontend_url') . '/payment-status',
+            'auto_open' => true // Auto-open Razorpay checkout
+        ];
+        
+        // Load checkout view
+        $this->load->view('payment/checkout', $data);
+    }
+    
+    /**
+     * Payment Callback
+     * 
+     * GET /api/subscription/callback
+     * 
+     * Called after Razorpay payment completion. Verifies payment and redirects to frontend.
+     */
+    public function callback() {
+        // Get payment details from query string (GET) or form data (POST)
+        $razorpay_payment_id = $this->input->get_post('razorpay_payment_id');
+        $razorpay_subscription_id = $this->input->get_post('razorpay_subscription_id');
+        $razorpay_signature = $this->input->get_post('razorpay_signature');
+        
+        $frontend_url = $this->config->item('frontend_url') ?: 'http://localhost:3000';
+        $success_url = $this->config->item('payment_success_url') ?: $frontend_url . '/payment-status';
+        $failure_url = $this->config->item('payment_failure_url') ?: $frontend_url . '/payment-status';
+        
+        // If no payment details, redirect to failure
+        if (!$razorpay_payment_id || !$razorpay_subscription_id || !$razorpay_signature) {
+            $params = http_build_query([
+                'status' => 'failed',
+                'message' => 'Payment details missing'
+            ]);
+            redirect($failure_url . '?' . $params);
+            return;
+        }
+        
+        // Verify signature
+        $is_valid = $this->razorpay_library->verify_subscription_signature(
+            $razorpay_subscription_id,
+            $razorpay_payment_id,
+            $razorpay_signature
+        );
+        
+        if (!$is_valid) {
+            log_message('error', 'Payment signature verification failed for subscription: ' . $razorpay_subscription_id);
+            $params = http_build_query([
+                'status' => 'failed',
+                'message' => 'Payment verification failed'
+            ]);
+            redirect($failure_url . '?' . $params);
+            return;
+        }
+        
+        // Get subscription from database
+        $subscription = $this->Subscription_model->get_by_razorpay_id($razorpay_subscription_id);
+        
+        if (!$subscription) {
+            $params = http_build_query([
+                'status' => 'failed',
+                'message' => 'Subscription not found'
+            ]);
+            redirect($failure_url . '?' . $params);
+            return;
+        }
+        
+        // Fetch subscription details from Razorpay
+        $rzp_subscription = $this->razorpay_library->fetch_subscription($razorpay_subscription_id);
+        
+        if (isset($rzp_subscription['error'])) {
+            log_message('error', 'Failed to fetch Razorpay subscription: ' . $rzp_subscription['message']);
+        }
+        
+        // Get plan for duration calculation
+        $plan = $this->Plan_model->get_by_id($subscription['plan_id']);
+        $duration_days = $plan ? (int)$plan['duration_days'] : 30;
+        
+        // Calculate period dates
+        $current_period_start = date('Y-m-d H:i:s');
+        $current_period_end = date('Y-m-d H:i:s', strtotime("+{$duration_days} days"));
+        
+        // Use Razorpay dates if available
+        if (!empty($rzp_subscription['current_start'])) {
+            $current_period_start = date('Y-m-d H:i:s', $rzp_subscription['current_start']);
+        }
+        if (!empty($rzp_subscription['current_end'])) {
+            $current_period_end = date('Y-m-d H:i:s', $rzp_subscription['current_end']);
+        }
+        
+        // Update subscription status
+        $this->Subscription_model->update($subscription['subscription_id'], [
+            'status' => 'active',
+            'current_period_start' => $current_period_start,
+            'current_period_end' => $current_period_end,
+            'paid_count' => 1,
+            'charge_at' => !empty($rzp_subscription['charge_at']) 
+                ? date('Y-m-d H:i:s', $rzp_subscription['charge_at']) 
+                : $current_period_end
+        ]);
+        
+        // Update user subscription status
+        $this->User_model->update($subscription['user_id'], [
+            'subscription_type' => 'premium',
+            'subscription_status' => 'active',
+            'subscription_expires_at' => $current_period_end
+        ]);
+        
+        // Record payment
+        $this->Payment_model->create([
+            'user_id' => $subscription['user_id'],
+            'subscription_id' => $subscription['subscription_id'],
+            'razorpay_payment_id' => $razorpay_payment_id,
+            'razorpay_subscription_id' => $razorpay_subscription_id,
+            'amount' => $plan ? $plan['amount'] : $subscription['amount'],
+            'currency' => 'INR',
+            'method' => 'upi',
+            'status' => 'captured',
+            'is_recurring' => 0,
+            'billing_cycle' => 1
+        ]);
+        
+        log_message('info', 'Payment callback successful for subscription: ' . $razorpay_subscription_id);
+        
+        // Redirect to frontend with success parameters
+        $params = http_build_query([
+            'status' => 'success',
+            'subscription_id' => $subscription['subscription_id'],
+            'plan_id' => $plan ? $plan['plan_id'] : null,
+            'plan_name' => $plan ? $plan['name'] : 'Premium',
+            'plan_amount' => $plan ? $plan['amount'] : $subscription['amount'],
+            'billing_period' => $plan ? $plan['billing_period'] : 'monthly',
+            'expires_at' => $current_period_end,
+            'payment_id' => $razorpay_payment_id
+        ]);
+        
+        redirect($success_url . '?' . $params);
+    }
+    
+    /**
+     * Show payment result page
+     */
+    private function show_payment_result($status, $message, $redirect_url, $subscription_data = []) {
+        // Override JSON content type for HTML view
+        header('Content-Type: text/html; charset=utf-8');
+        
+        $data = [
+            'status' => $status,
+            'message' => $message,
+            'redirect_url' => $redirect_url,
+            'subscription' => $subscription_data,
+            'auto_redirect' => true,
+            'redirect_delay' => 5
+        ];
+        
+        // Add status to redirect URL
+        $separator = strpos($redirect_url, '?') !== false ? '&' : '?';
+        $data['redirect_url'] = $redirect_url . $separator . 'status=' . $status;
+        
+        if ($status === 'success' && !empty($subscription_data['expires_at'])) {
+            $data['redirect_url'] .= '&expires=' . urlencode($subscription_data['expires_at']);
+        } elseif ($status === 'failed') {
+            $data['redirect_url'] .= '&message=' . urlencode($message);
+        }
+        
+        $this->load->view('payment/result', $data);
     }
     
     /**

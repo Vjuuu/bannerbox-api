@@ -252,8 +252,8 @@ $config['cors_allowed_origins'] = '*';
 | Get your API keys from: https://dashboard.razorpay.com/app/keys
 | For testing, use test mode keys
 */
-$config['razorpay_key_id'] = 'YOUR_RAZORPAY_KEY_ID';           // Replace with your Key ID
-$config['razorpay_key_secret'] = 'YOUR_RAZORPAY_KEY_SECRET';   // Replace with your Key Secret
+$config['razorpay_key_id'] = 'rzp_test_S51gsd8cJsEHBf';           // Replace with your Key ID
+$config['razorpay_key_secret'] = 'qORHTGUpWYDYutrfpz0djQvq';   // Replace with your Key Secret
 $config['razorpay_webhook_secret'] = 'YOUR_WEBHOOK_SECRET';     // Set this after creating webhook in Razorpay Dashboard
 
 /*

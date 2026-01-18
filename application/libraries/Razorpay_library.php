@@ -27,6 +27,14 @@ class Razorpay_library {
         $this->CI =& get_instance();
         $this->key_id = $this->CI->config->item('razorpay_key_id');
         $this->key_secret = $this->CI->config->item('razorpay_key_secret');
+        
+        // Validate credentials are configured
+        if (empty($this->key_id) || $this->key_id === 'YOUR_RAZORPAY_KEY_ID') {
+            log_message('error', 'Razorpay Key ID not configured in config.php');
+        }
+        if (empty($this->key_secret) || $this->key_secret === 'YOUR_RAZORPAY_KEY_SECRET') {
+            log_message('error', 'Razorpay Key Secret not configured in config.php');
+        }
     }
     
     // =========================================================================
@@ -92,35 +100,50 @@ class Razorpay_library {
      * 
      * @param string $plan_id Razorpay Plan ID (plan_xxxxx)
      * @param int $total_count Total billing cycles (null = infinite)
-     * @param string $customer_email Customer email for notifications
-     * @param string $customer_contact Customer phone (required for UPI)
-     * @param string $customer_name Customer name
+     * @param string $customer_id Razorpay Customer ID (optional, will create if not provided)
+     * @param array $customer_details Array with 'name', 'email', 'contact' (if customer_id not provided)
      * @param array $notes Additional notes (user_id, etc.)
      * @param int $start_at Unix timestamp to start subscription (null = immediate)
      * @param int $expire_by Unix timestamp by which subscription must be authenticated
      * @return array Subscription details with 'id', 'short_url', 'status'
      */
-    public function create_subscription($plan_id, $total_count = null, $customer_email = null, 
-                                         $customer_contact = null, $customer_name = null, 
-                                         $notes = [], $start_at = null, $expire_by = null) {
+    public function create_subscription($plan_id, $total_count = null, $customer_id = null, 
+                                         $customer_details = [], $notes = [], 
+                                         $start_at = null, $expire_by = null) {
         $data = [
             'plan_id' => $plan_id,
             'customer_notify' => 1, // Razorpay sends payment reminders
             'notes' => $notes
         ];
         
-        // Total billing cycles (null = infinite recurring)
-        if ($total_count !== null) {
+        // Total billing cycles - REQUIRED by Razorpay (either total_count or end_at)
+        // If not specified, set to large number (120 = 10 years of monthly)
+        if ($total_count !== null && $total_count > 0) {
             $data['total_count'] = $total_count;
+        } else {
+            // Default to 120 billing cycles (10 years for monthly, or large number for annual)
+            $data['total_count'] = 120;
         }
         
-        // Customer details (recommended for UPI autopay)
-        if ($customer_email || $customer_contact) {
-            $data['customer'] = [];
-            if ($customer_name) $data['customer']['name'] = $customer_name;
-            if ($customer_email) $data['customer']['email'] = $customer_email;
-            if ($customer_contact) $data['customer']['contact'] = $customer_contact;
+        // Customer handling - either use existing customer_id or create new customer
+        if (!empty($customer_id)) {
+            // Use existing Razorpay customer
+            $data['customer_id'] = $customer_id;
+        } elseif (!empty($customer_details)) {
+            // Create customer first, then use their ID
+            $customer_name = $customer_details['name'] ?? '';
+            $customer_email = $customer_details['email'] ?? '';
+            $customer_contact = $customer_details['contact'] ?? '';
+            
+            if ($customer_email) {
+                $customer_response = $this->create_customer($customer_name, $customer_email, $customer_contact);
+                
+                if (isset($customer_response['id'])) {
+                    $data['customer_id'] = $customer_response['id'];
+                }
+            }
         }
+        // If neither customer_id nor customer_details provided, Razorpay will collect details during checkout
         
         // Schedule subscription start (null = starts immediately after auth)
         if ($start_at !== null) {
@@ -463,7 +486,20 @@ class Razorpay_library {
             'Accept: application/json'
         ]);
         curl_setopt($ch, CURLOPT_TIMEOUT, 30);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+        
+        // Disable SSL verification for local development
+        // In production, always verify SSL certificates
+        $is_local = (
+            strpos(base_url(), 'localhost') !== false || 
+            strpos(base_url(), '.test') !== false ||
+            strpos(base_url(), '127.0.0.1') !== false ||
+            ENVIRONMENT === 'development'
+        );
+        
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, !$is_local);
+        if ($is_local) {
+            curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
+        }
         
         if ($method === 'POST') {
             curl_setopt($ch, CURLOPT_POST, true);
@@ -503,7 +539,15 @@ class Razorpay_library {
             $error_message = $decoded['error']['description'] ?? 'Unknown error';
             $error_code = $decoded['error']['code'] ?? null;
             
-            log_message('error', 'Razorpay API Error: ' . $error_message . ' (Code: ' . $error_code . ')');
+            // Better error messages for common issues
+            if ($http_code == 401 || $http_code == 400) {
+                if (strpos($error_message, 'authentication') !== false || strpos($error_message, 'API key') !== false) {
+                    $error_message = 'Razorpay API credentials are invalid or not configured. Please check your config.php file and add valid API keys from https://dashboard.razorpay.com/app/keys';
+                }
+            }
+            
+            log_message('error', 'Razorpay API Error: ' . $error_message . ' (Code: ' . $error_code . ', HTTP: ' . $http_code . ')');
+            log_message('debug', 'Razorpay Response: ' . $response);
             
             return [
                 'error' => true,

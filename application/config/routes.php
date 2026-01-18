@@ -49,6 +49,8 @@ $route['api/posters/category/(:num)'] = 'api/poster/by_category/$1';
 // Subscription routes (Razorpay Subscriptions API - Recurring Payments)
 $route['api/subscription/plans'] = 'api/subscription/plans';           // GET - List available plans
 $route['api/subscription/subscribe'] = 'api/subscription/subscribe';   // POST - Create subscription
+$route['api/subscription/checkout/(:num)'] = 'api/subscription/checkout/$1'; // GET - Hosted checkout page
+$route['api/subscription/callback'] = 'api/subscription/callback';     // GET/POST - Payment callback
 $route['api/subscription/authenticate'] = 'api/subscription/authenticate'; // POST - Verify subscription auth
 $route['api/subscription/status'] = 'api/subscription/status';         // GET - Get current status
 $route['api/subscription/cancel'] = 'api/subscription/cancel';         // POST - Cancel subscription
