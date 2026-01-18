@@ -45,3 +45,18 @@ $route['api/posters/update/(:num)'] = 'api/poster/update/$1';
 $route['api/posters/delete/(:num)'] = 'api/poster/delete/$1';
 $route['api/posters/trending'] = 'api/poster/trending';
 $route['api/posters/category/(:num)'] = 'api/poster/by_category/$1';
+
+// Subscription routes (Razorpay Subscriptions API - Recurring Payments)
+$route['api/subscription/plans'] = 'api/subscription/plans';           // GET - List available plans
+$route['api/subscription/subscribe'] = 'api/subscription/subscribe';   // POST - Create subscription
+$route['api/subscription/authenticate'] = 'api/subscription/authenticate'; // POST - Verify subscription auth
+$route['api/subscription/status'] = 'api/subscription/status';         // GET - Get current status
+$route['api/subscription/cancel'] = 'api/subscription/cancel';         // POST - Cancel subscription
+$route['api/subscription/pause'] = 'api/subscription/pause';           // POST - Pause subscription
+$route['api/subscription/resume'] = 'api/subscription/resume';         // POST - Resume subscription
+$route['api/subscription/sync'] = 'api/subscription/sync';             // POST - Sync from Razorpay
+$route['api/subscription/history'] = 'api/subscription/history';       // GET - Payment history
+$route['api/subscription/create-plan'] = 'api/subscription/create_plan'; // POST - Create Razorpay plan (admin)
+
+// Razorpay Webhook route (no JWT required - uses webhook signature verification)
+$route['api/webhook/razorpay'] = 'api/webhook/razorpay';
