@@ -254,7 +254,7 @@ $config['cors_allowed_origins'] = '*';
 */
 $config['razorpay_key_id'] = 'rzp_test_S51gsd8cJsEHBf';           // Replace with your Key ID
 $config['razorpay_key_secret'] = 'qORHTGUpWYDYutrfpz0djQvq';   // Replace with your Key Secret
-$config['razorpay_webhook_secret'] = 'YOUR_WEBHOOK_SECRET';     // Set this after creating webhook in Razorpay Dashboard
+$config['razorpay_webhook_secret'] = '2xxm@DXeAMk6tPR';     // Set this after creating webhook in Razorpay Dashboard
 
 /*
 |--------------------------------------------------------------------------
