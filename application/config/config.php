@@ -270,6 +270,6 @@ $config['subscription_currency'] = 'INR';
 | Frontend URLs for Payment Redirects
 |--------------------------------------------------------------------------
 */
-$config['frontend_url'] = 'http://localhost:3000';                        // Your React app URL
-$config['payment_success_url'] = 'http://localhost:3000/payment-status';  // Payment result page
-$config['payment_failure_url'] = 'http://localhost:3000/payment-status';  // Payment result page
+$config['frontend_url'] = 'https://bannerbox.in';                        // Your React app URL
+$config['payment_success_url'] = 'https://bannerbox.in/payment-status';  // Payment result page
+$config['payment_failure_url'] = 'https://bannerbox.in/payment-status';  // Payment result page
