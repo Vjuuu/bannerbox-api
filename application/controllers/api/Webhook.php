@@ -100,6 +100,18 @@ class Webhook extends CI_Controller {
         $event_type = $event['event'];
         $log_data['event_type'] = $event_type;
         
+        // Extract subscription_id and payment_id from payload for logging
+        $log_data['razorpay_subscription_id'] = null;
+        $log_data['razorpay_payment_id'] = null;
+        
+        if (isset($event['payload']['subscription']['entity']['id'])) {
+            $log_data['razorpay_subscription_id'] = $event['payload']['subscription']['entity']['id'];
+        }
+        
+        if (isset($event['payload']['payment']['entity']['id'])) {
+            $log_data['razorpay_payment_id'] = $event['payload']['payment']['entity']['id'];
+        }
+        
         log_message('info', 'Processing Razorpay webhook event: ' . $event_type);
         
         // Process the event
