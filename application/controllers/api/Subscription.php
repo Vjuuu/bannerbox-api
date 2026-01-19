@@ -704,11 +704,14 @@ class Subscription extends CI_Controller {
         $user_data = $this->validate_jwt();
         
         $user = $this->User_model->get_by_id($user_data['user_id']);
+        
+        // Get the user's latest subscription (any status)
         $subscription = $this->Subscription_model->get_active_by_user($user_data['user_id']);
         
-        // Also check for pending subscriptions
+        // If no active subscription, get the most recent one regardless of status
         if (!$subscription) {
-            $subscription = $this->Subscription_model->get_pending_by_user($user_data['user_id']);
+            $all_subscriptions = $this->Subscription_model->get_by_user($user_data['user_id'], 1);
+            $subscription = !empty($all_subscriptions) ? $all_subscriptions[0] : null;
         }
         
         // Get plan details if subscription exists
@@ -762,7 +765,7 @@ class Subscription extends CI_Controller {
                     'duration_days' => $plan['duration_days']
                 ] : null,
                 'razorpay_subscription_id' => $subscription['razorpay_subscription_id'] ?? null,
-                'short_url' => ($subscription && $subscription['status'] === 'created') 
+                'short_url' => ($subscription && in_array($subscription['status'], ['created', 'pending'])) 
                     ? $subscription['razorpay_short_url'] 
                     : null
             ]
