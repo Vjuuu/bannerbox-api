@@ -37,6 +37,15 @@ $route['api/categories/create'] = 'api/category/create';
 $route['api/categories/update/(:num)'] = 'api/category/update/$1';
 $route['api/categories/delete/(:num)'] = 'api/category/delete/$1';
 
+// get top category 
+// Top Categories Routes
+$route['api/top-categories'] = 'api/TopCategories/index';
+$route['api/top-categories/add'] = 'api/TopCategories/add';
+$route['api/top-categories/update-order/(:num)'] = 'api/TopCategories/updateOrder/$1';
+$route['api/top-categories/delete/(:num)'] = 'api/TopCategories/delete/$1';
+
+
+
 // Poster routes
 $route['api/posters'] = 'api/poster/index';
 $route['api/posters/(:num)'] = 'api/poster/show/$1';

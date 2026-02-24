@@ -118,4 +118,17 @@ class Category_model extends CI_Model {
         $query = $this->db->get();
         return $query->result_array();
     }
+
+    // get top categories
+       public function get_top_categories($limit = 5) {
+        $this->db->select('c.*, COUNT(p.poster_id) as poster_count');
+        $this->db->from($this->table . ' c');
+        $this->db->join('posters p', 'c.category_id = p.category_id', 'left');
+        $this->db->where('c.is_active', 1);
+        $this->db->group_by('c.category_id');
+        $this->db->order_by('poster_count', 'DESC');
+        $this->db->limit($limit);
+        $query = $this->db->get();
+        return $query->result_array();
+       }
 }

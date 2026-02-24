@@ -230,4 +230,21 @@ class Category extends CI_Controller {
             echo json_encode(['success' => false, 'message' => 'Category deletion failed']);
         }
     }
+
+
+    // get top categories  
+    public function top_categories() {
+        if ($this->input->method() !== 'get') {
+            http_response_code(405);
+            echo json_encode(['success' => false, 'message' => 'Method not allowed']);
+            return;
+        }
+        
+        $top_categories = $this->Category_model->get_top_categories();
+        
+        echo json_encode([
+            'success' => true,
+            'data' => $top_categories
+        ]);
+    }
 }
