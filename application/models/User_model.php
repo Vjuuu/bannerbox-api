@@ -116,4 +116,108 @@ class User_model extends CI_Model {
         $query = $this->db->get($this->table);
         return $query->result_array();
     }
+    
+    /**
+     * Get users with active subscriptions
+     */
+    public function get_active_subscribers() {
+        $this->db->where('subscription_status', 'active');
+        $this->db->where('subscription_expires_at >=', date('Y-m-d H:i:s'));
+        return $this->db->get($this->table)->result_array();
+    }
+    
+    /**
+     * Get users with expiring subscriptions
+     * 
+     * @param int $days_before Number of days before expiry
+     */
+    public function get_expiring_subscriptions($days_before = 3) {
+        $expiry_date = date('Y-m-d H:i:s', strtotime("+{$days_before} days"));
+        
+        $this->db->where('subscription_status', 'active');
+        $this->db->where('subscription_expires_at <=', $expiry_date);
+        $this->db->where('subscription_expires_at >=', date('Y-m-d H:i:s'));
+        return $this->db->get($this->table)->result_array();
+    }
+    
+    /**
+     * Get users with expired subscriptions that need updating
+     */
+    public function get_expired_subscriptions() {
+        $this->db->where('subscription_status', 'active');
+        $this->db->where('subscription_expires_at <', date('Y-m-d H:i:s'));
+        return $this->db->get($this->table)->result_array();
+    }
+    
+    /**
+     * Update expired subscriptions to basic
+     * 
+     * Call this from a cron job
+     */
+    public function expire_subscriptions() {
+        $expired_users = $this->get_expired_subscriptions();
+        $count = 0;
+        
+        foreach ($expired_users as $user) {
+            $this->update($user['user_id'], [
+                'subscription_type' => 'basic',
+                'subscription_status' => 'expired'
+            ]);
+            $count++;
+        }
+        
+        return $count;
+    }
+    
+    /**
+     * Check if user has premium access
+     * 
+     * @param int $user_id User ID
+     * @return bool True if user has active premium subscription
+     */
+    public function has_premium_access($user_id) {
+        $user = $this->get_by_id($user_id);
+        
+        if (!$user) {
+            return false;
+        }
+        
+        // Check if subscription is active and not expired
+        if ($user['subscription_status'] === 'active' && 
+            !empty($user['subscription_expires_at']) &&
+            strtotime($user['subscription_expires_at']) > time()) {
+            return true;
+        }
+        
+        return false;
+    }
+    
+    /**
+     * Get subscription statistics
+     */
+    public function get_subscription_stats() {
+        $stats = [];
+        
+        // Total users
+        $stats['total_users'] = $this->db->count_all($this->table);
+        
+        // Active premium subscribers
+        $this->db->where('subscription_status', 'active');
+        $this->db->where('subscription_expires_at >=', date('Y-m-d H:i:s'));
+        $stats['active_premium'] = $this->db->count_all_results($this->table);
+        
+        // Basic users
+        $this->db->where('subscription_type', 'basic');
+        $stats['basic_users'] = $this->db->count_all_results($this->table);
+        
+        // Expired subscriptions
+        $this->db->where('subscription_status', 'expired');
+        $stats['expired'] = $this->db->count_all_results($this->table);
+        
+        // Cancelled subscriptions
+        $this->db->where('subscription_status', 'cancelled');
+        $stats['cancelled'] = $this->db->count_all_results($this->table);
+        
+        return $stats;
+    }
 }

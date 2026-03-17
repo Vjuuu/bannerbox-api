@@ -6,7 +6,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 | Base Site URL
 |--------------------------------------------------------------------------
 */
-$config['base_url'] = 'https://backend.bannerbox.in/';
+$config['base_url'] = 'http://bannerbox.test/';
 
 /*
 |--------------------------------------------------------------------------
@@ -93,7 +93,7 @@ $config['allow_get_array'] = TRUE;
 | Error Logging Threshold
 |--------------------------------------------------------------------------
 */
-$config['log_threshold'] = 0;
+$config['log_threshold'] = 3;
 
 /*
 |--------------------------------------------------------------------------
@@ -244,3 +244,32 @@ $config['jwt_expire_time'] = 2592000; // 1 hour in seconds
 */
 $config['api_key'] = 'your-api-key-12345';
 $config['cors_allowed_origins'] = '*';
+
+/*
+|--------------------------------------------------------------------------
+| Razorpay Configuration
+|--------------------------------------------------------------------------
+| Get your API keys from: https://dashboard.razorpay.com/app/keys
+| For testing, use test mode keys
+*/
+$config['razorpay_key_id'] = 'rzp_test_S51gsd8cJsEHBf';           // Replace with your Key ID
+$config['razorpay_key_secret'] = 'qORHTGUpWYDYutrfpz0djQvq';   // Replace with your Key Secret
+$config['razorpay_webhook_secret'] = '2xxm@DXeAMk6tPR';     // Set this after creating webhook in Razorpay Dashboard
+
+/*
+|--------------------------------------------------------------------------
+| Subscription Settings
+|--------------------------------------------------------------------------
+| Plans are stored in database (subscription_plans table)
+| This is just the default currency
+*/
+$config['subscription_currency'] = 'INR';
+
+/*
+|--------------------------------------------------------------------------
+| Frontend URLs for Payment Redirects
+|--------------------------------------------------------------------------
+*/
+$config['frontend_url'] = 'https://bannerbox.in';                        // Your React app URL
+$config['payment_success_url'] = 'https://bannerbox.in/payment-status';  // Payment result page
+$config['payment_failure_url'] = 'https://bannerbox.in/payment-status';  // Payment result page
